@@ -5,18 +5,18 @@ ROS2 driver for px4 based drones.
 
 - ROS2 Humble installed. Installation steps can be found *[here](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html)*.
 - MicroXRCE-DDS Agent. To do so, run the following commands:
-```sh
-git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
-cd Micro-XRCE-DDS-Agent
-mkdir build
-cd build
-cmake ..
-make
-sudo make install
-sudo ldconfig /usr/local/lib/
-```
+    ```sh
+    git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git
+    cd Micro-XRCE-DDS-Agent
+    mkdir build
+    cd build
+    cmake ..
+    make
+    sudo make install
+    sudo ldconfig /usr/local/lib/
+    ```
 
-You can find more info and other ways to install it by checking *[this](https://docs.px4.io/main/en/middleware/uxrce_dds.html)* link on PX4 main documentation.
+    You can find more info and other ways to install it by checking *[this](https://docs.px4.io/main/en/middleware/uxrce_dds.html)* link on PX4 main documentation.
 
 ## Installation
 
@@ -66,7 +66,8 @@ cd ~/px4_ws/
 source install/local_setup.bash
 ```
 
-Run the node.
+Run the node. 
+==CAUTION :== By the moment of writting this guide, drone will take off and start a trajectory immediately after running the node.
 ```sh
 ros2 run px4_driver px4_driver_node
 ```
