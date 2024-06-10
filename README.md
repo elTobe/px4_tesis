@@ -1,7 +1,7 @@
 # px4_driver
 ROS2 driver for px4 based drones.
 
-## Prerequisites
+## Prerequisites.
 
 - ROS2 Humble installed. Installation steps can be found *[here](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html)*.
 - MicroXRCE-DDS Agent. To do so, run the following commands:
@@ -18,61 +18,64 @@ ROS2 driver for px4 based drones.
 
     You can find more info and other ways to install it by checking *[this](https://docs.px4.io/main/en/middleware/uxrce_dds.html)* link on PX4 main documentation.
 
-## Installation
+## Installation.
 
-Create a directory for ROS2 Workspace.
-```sh
-mkdir -p ~/px4_ws/src/
-cd ~/px4_ws/src/
-```
+1. Create a directory for ROS2 Workspace.
+    ```sh
+    mkdir -p ~/px4_ws/src/
+    cd ~/px4_ws/src/
+    ```
 
-Clone PX4 msgs repo.
-```sh
-git clone https://github.com/PX4/px4_msgs.git
-```
+2. Clone PX4 msgs repo.
+    ```sh
+    git clone https://github.com/PX4/px4_msgs.git
+    ```
 
-Clone this repo.
-```sh
-git clone https://github.com/elTobe/px4_driver.git
-```
+3. Clone this repo.
+    ```sh
+    git clone https://github.com/elTobe/px4_driver.git
+    ```
 
-Source your ROS2 installation and build the ROS2 Workspace.
-```sh
-cd ~/px4_ws/
-source /opt/ros/humble/setup.bash
-colcon build
-```
+4. Source your ROS2 installation and build the ROS2 Workspace.
+    ```sh
+    cd ~/px4_ws/
+    source /opt/ros/humble/setup.bash
+    colcon build
+    ```
 
-## Usage
+## Usage.
 
-Source your ROS2 installation if you haven't done it before.
-```sh
-source /opt/ros/humble/setup.bash
-```
+1. Source your ROS2 installation if you haven't done it before.
+    ```sh
+    source /opt/ros/humble/setup.bash
+    ```
 
-Run the MicroXRCE-DDS Agent. Assuming you have connected PX4 to Raspberry Pi over UART pins, the command should be : 
-```sh
-sudo MicroXRCEAgent serial --dev /dev/ttyACM0 -b 921600
-```
+2. Run the MicroXRCE-DDS Agent. Assuming you have connected PX4 to Raspberry Pi over UART pins, the command should be : 
+    ```sh
+    sudo MicroXRCEAgent serial --dev /dev/ttyACM0 -b 921600
+    ```
 
-To check that the connection is working fine, you can list topics created by the agent, all of them starting with /fmu/*.
-```sh
-ros2 topic list
-```
+3. To check that the connection is working fine, you can list topics created by the agent, all of them starting with /fmu/*.
+    ```sh
+    ros2 topic list
+    ```
 
-Source your local installation.
-```sh
-cd ~/px4_ws/
-source install/local_setup.bash
-```
+3. Source your local installation.
+    ```sh
+    cd ~/px4_ws/
+    source install/local_setup.bash
+    ```
 
-Run the node. 
-==CAUTION :== By the moment of writting this guide, drone will take off and start a trajectory immediately after running the node.
-```sh
-ros2 run px4_driver px4_driver_node
-```
+4. Run the node. 
 
-## Useful Links
+    **CAUTION: By the moment of writting this guide, drone will take off and start a trajectory immediately after running the node.**
+
+
+    ```sh
+    ros2 run px4_driver px4_driver_node
+    ```
+
+## Useful Links.
 
 - *[ROS2 Humble installation.](https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html)*
 - *[ROS2 User Guide on PX4 main documentation.](https://docs.px4.io/main/en/ros/ros2_comm.html)*
