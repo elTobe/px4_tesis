@@ -1,0 +1,51 @@
+[3.368s] Invoking command in '/home/droneqsm/px4_ws/src/px4_driver': PYTHONPATH=/home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/prefix_override:/home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/px4_driver build --build-base /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build install --record /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/install.log --single-version-externally-managed install_data
+[5.056s] running egg_info
+[5.060s] creating build/px4_driver/px4_driver.egg-info
+[5.063s] writing build/px4_driver/px4_driver.egg-info/PKG-INFO
+[5.066s] writing dependency_links to build/px4_driver/px4_driver.egg-info/dependency_links.txt
+[5.070s] writing entry points to build/px4_driver/px4_driver.egg-info/entry_points.txt
+[5.072s] writing requirements to build/px4_driver/px4_driver.egg-info/requires.txt
+[5.074s] writing top-level names to build/px4_driver/px4_driver.egg-info/top_level.txt
+[5.075s] writing manifest file 'build/px4_driver/px4_driver.egg-info/SOURCES.txt'
+[5.086s] reading manifest file 'build/px4_driver/px4_driver.egg-info/SOURCES.txt'
+[5.087s] adding license file 'LICENSE'
+[5.090s] writing manifest file 'build/px4_driver/px4_driver.egg-info/SOURCES.txt'
+[5.092s] running build
+[5.093s] running build_py
+[5.094s] creating /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build
+[5.096s] creating /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib
+[5.098s] creating /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver
+[5.100s] copying px4_driver/trajectory_manager.py -> /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver
+[5.101s] copying px4_driver/__init__.py -> /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver
+[5.102s] copying px4_driver/inoura_connection.py -> /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver
+[5.106s] copying px4_driver/px4_driver_node.py -> /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver
+[5.117s] copying px4_driver/path_publisher.py -> /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver
+[5.118s] running install
+[5.119s] running install_lib
+[5.120s] creating /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver
+[5.120s] copying /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver/trajectory_manager.py -> /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver
+[5.121s] copying /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver/__init__.py -> /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver
+[5.122s] copying /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver/inoura_connection.py -> /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver
+[5.123s] copying /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver/px4_driver_node.py -> /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver
+[5.124s] copying /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build/lib/px4_driver/path_publisher.py -> /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver
+[5.127s] byte-compiling /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver/trajectory_manager.py to trajectory_manager.cpython-310.pyc
+[5.142s] byte-compiling /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver/__init__.py to __init__.cpython-310.pyc
+[5.143s] byte-compiling /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver/inoura_connection.py to inoura_connection.cpython-310.pyc
+[5.151s] byte-compiling /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver/px4_driver_node.py to px4_driver_node.cpython-310.pyc
+[5.163s] byte-compiling /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver/path_publisher.py to path_publisher.cpython-310.pyc
+[5.170s] running install_data
+[5.171s] creating /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/share/ament_index
+[5.172s] creating /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/share/ament_index/resource_index
+[5.173s] creating /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/share/ament_index/resource_index/packages
+[5.174s] copying resource/px4_driver -> /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/share/ament_index/resource_index/packages
+[5.175s] copying package.xml -> /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/share/px4_driver
+[5.177s] copying launch/inoura.launch.py -> /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/share/px4_driver
+[5.178s] running install_egg_info
+[5.193s] Copying build/px4_driver/px4_driver.egg-info to /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages/px4_driver-0.0.0-py3.10.egg-info
+[5.208s] running install_scripts
+[5.326s] Installing inoura_connection script to /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/px4_driver
+[5.327s] Installing path_publisher script to /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/px4_driver
+[5.328s] Installing px4_driver_node script to /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/px4_driver
+[5.328s] Installing trajectory_manager script to /home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/px4_driver
+[5.330s] writing list of installed files to '/home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/install.log'
+[5.444s] Invoked command in '/home/droneqsm/px4_ws/src/px4_driver' returned '0': PYTHONPATH=/home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/prefix_override:/home/droneqsm/px4_ws/src/px4_driver/install/px4_driver/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated setup.py egg_info --egg-base build/px4_driver build --build-base /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/build install --record /home/droneqsm/px4_ws/src/px4_driver/build/px4_driver/install.log --single-version-externally-managed install_data
