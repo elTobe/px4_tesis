@@ -44,14 +44,24 @@ class PathPubliser(Node):
         elif selected_path == "poly":
             
             num_lados = 5
-            grados = numpy.linspace(0, 360, num_lados + 1, endpoint=True)
+            grados, paso = numpy.linspace(0, 360, num_lados + 1, endpoint=True, retstep=True)
+            yaw = 90
 
-            for grad in grados:
+            for i, grad in enumerate(grados):
                 pose_st = PoseStamped()
                 pose_st.pose.position.x = math.cos(grad * math.pi/180)
                 pose_st.pose.position.y = math.sin(grad * math.pi/180)
                 pose_st.pose.position.z = -1.0
+
+                q = self.quaternion_from_euler(yaw=(grad)*math.pi/180)
+                pose_st.pose.orientation.w = q[0]
+                pose_st.pose.orientation.x = q[1]
+                pose_st.pose.orientation.y = q[2]
+                pose_st.pose.orientation.z = q[3]
+
+                #self.get_logger().info(f"Paso : {paso}, Grado poly : {grad}, Grado yaw : {yaw}")
                 msg.poses.append(pose_st)
+                msg.poses.append
 
         elif selected_path == "heli":
 
@@ -62,6 +72,8 @@ class PathPubliser(Node):
             self.max_alt = 2.0
             self.altura = 1.0
             self.delta_alt = 0.025
+            paso_yaw = 360 / (((self.max_alt - self.altura) / self.delta_alt) - 3)
+            yaw = 90
             #msg.poses.append(PoseStamped())
             #init_pose_st = PoseStamped()
             #init_pose_st.pose.position.z = -self.altura
@@ -71,11 +83,16 @@ class PathPubliser(Node):
                 pose_st.pose.position.x = math.cos(self.theta) * self.radio
                 pose_st.pose.position.y = math.sin(self.theta) * self.radio
                 pose_st.pose.position.z = float(-self.altura)
+                q = self.quaternion_from_euler(yaw=(yaw*math.pi/180))
+                pose_st.pose.orientation.w = q[0]
+                pose_st.pose.orientation.x = q[1]
+                pose_st.pose.orientation.y = q[2]
+                pose_st.pose.orientation.z = q[3]
                 msg.poses.append(pose_st)
 
                 self.altura += self.delta_alt
                 self.theta += self.delta_ang
-
+                #yaw += paso_yaw
         else:
             self.get_logger().info("No valid path, exiting")
             return
@@ -96,6 +113,25 @@ class PathPubliser(Node):
         # Start trajectory
         self.get_logger().info("Starting trajectory")
         self.starter_publisher.publish(Empty())
+
+    # Returns quaternion [w, x, y, z] from Euler angles
+    def quaternion_from_euler(self, roll=0, pitch=0, yaw=0):
+        cy = math.cos(yaw * 0.5)
+        sy = math.sin(yaw * 0.5)
+        cp = math.cos(pitch * 0.5)
+        sp = math.sin(pitch * 0.5)
+        cr = math.cos(roll * 0.5)
+        sr = math.sin(roll * 0.5)
+
+        q = numpy.array([0.0, 0.0, 0.0, 0.0])
+        q[0] = cy * cp * cr + sy * sp * sr
+        q[1] = cy * cp * sr - sy * sp * cr
+        q[2] = sy * cp * sr + cy * sp * cr
+        q[3] = sy * cp * cr - cy * sp * sr
+
+        #q = q / numpy.linalg.norm(q)
+        #self.get_logger().info(f"Quat is : {q}")
+        return q
 
 def main(args = None):
     rclpy.init(args=args)

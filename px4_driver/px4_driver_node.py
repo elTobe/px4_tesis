@@ -69,12 +69,13 @@ class PX4Driver(Node):
         cr = math.cos(roll * 0.5)
         sr = math.sin(roll * 0.5)
 
-        q = [0] * 4
+        q = numpy.array([0.0, 0.0, 0.0, 0.0])
         q[0] = cy * cp * cr + sy * sp * sr
         q[1] = cy * cp * sr - sy * sp * cr
         q[2] = sy * cp * sr + cy * sp * cr
         q[3] = sy * cp * cr - cy * sp * sr
 
+        #q = q / numpy.linalg.norm(q)
         return q
     
     # Returns euler angles from quaternion
@@ -239,11 +240,9 @@ class PX4Driver(Node):
         self.current_setpoint.position[2] = msg.pose.position.z
 
         # TODO: change yaw angle as well
-        # Only change yaw if orientation is not identity quaternion
-        #if msg.orientation.w != 1:
-        #    q = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]
-        #    _, _, yaw = self.euler_from_quaternion(q)
-        #    self.current_setpoint.yaw = yaw + self.takeoff_position.heading
+        #q = [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w]
+        _, _, yaw = self.euler_from_quaternion(msg.pose.orientation)
+        self.current_setpoint.yaw = yaw
 
     # Send hearbeat and current setpoint (this signal must be sent constantly when in offboard mode, in a frecuency >= 2 Hz)
     def heartbeat(self):
@@ -255,18 +254,9 @@ class PX4Driver(Node):
         msg.acceleration = False
         msg.attitude = False
         msg.body_rate = False
-        if numpy.linalg.norm(self.current_setpoint.velocity) != 0 or self.current_setpoint.yawspeed != 0:
-            msg.velocity = True
-            msg.position = False
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.offboard_control_mode_publisher.publish(msg)
 
-        # Publish setpoint, update position value to make drone hover after effects of velocity control
-        #if msg.velocity:
-        #    self.current_setpoint.position[0] = self.vehicle_local_position.x
-        #    self.current_setpoint.position[1] = self.vehicle_local_position.y
-        #    self.current_setpoint.position[2] = self.vehicle_local_position.z
-        #    self.current_setpoint.yaw = self.vehicle_local_position.heading
         self.current_setpoint.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.trajectory_setpoint_publisher.publish(self.current_setpoint)
 

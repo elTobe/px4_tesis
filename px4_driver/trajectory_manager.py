@@ -73,6 +73,45 @@ class TrajectoryManager(Node):
         pose_st.pose.position.y = result_vector[1]
         pose_st.pose.position.z = result_vector[2]
 
+    # Returns euler angles from quaternion
+    def euler_from_quaternion(self, quaternion):
+        x = quaternion.x
+        y = quaternion.y
+        z = quaternion.z
+        w = quaternion.w
+
+        sinr_cosp = 2 * (w * x + y * z)
+        cosr_cosp = 1 - 2 * (x * x + y * y)
+        roll = numpy.arctan2(sinr_cosp, cosr_cosp)
+
+        sinp = 2 * (w * y - z * x)
+        pitch = numpy.arcsin(sinp)
+
+        siny_cosp = 2 * (w * z + x * y)
+        cosy_cosp = 1 - 2 * (y * y + z * z)
+        yaw = numpy.arctan2(siny_cosp, cosy_cosp)
+
+        return roll, pitch, yaw
+    
+    # Returns quaternion [w, x, y, z] from Euler angles
+    def quaternion_from_euler(self, roll=0, pitch=0, yaw=0):
+        cy = math.cos(yaw * 0.5)
+        sy = math.sin(yaw * 0.5)
+        cp = math.cos(pitch * 0.5)
+        sp = math.sin(pitch * 0.5)
+        cr = math.cos(roll * 0.5)
+        sr = math.sin(roll * 0.5)
+
+        q = numpy.array([0.0, 0.0, 0.0, 0.0])
+        q[0] = cy * cp * cr + sy * sp * sr
+        q[1] = cy * cp * sr - sy * sp * cr
+        q[2] = sy * cp * sr + cy * sp * cr
+        q[3] = sy * cp * cr - cy * sp * sr
+
+        #q = q / numpy.linalg.norm(q)
+        return q
+
+
     # Update current drone pose
     def drone_pose_update(self, msg):
         self.drone_pose = msg
@@ -126,6 +165,7 @@ class TrajectoryManager(Node):
         transform = TransformStamped()
         try:
             transform = self.tf_buffer.lookup_transform("ned_earth",self.current_trajectory.header.frame_id,rclpy.time.Time())
+            _, _, yaw_transform = self.euler_from_quaternion(transform.transform.rotation)
         except:
             self.get_logger().info("Error obteniendo la transformada")
             return
@@ -141,19 +181,26 @@ class TrajectoryManager(Node):
 
             # Get Previous Pose or move dron from current pos to first item in trajectory
             prev_pose_st = PoseStamped()
+            prev_yaw = 0
             if index == 0:
                 prev_pose_st = self.drone_pose
+                _, _, prev_yaw_path = self.euler_from_quaternion(self.drone_pose.pose.orientation)
             else:
                 prev_pose_st.pose.position.x = self.current_trajectory.poses[index-1].pose.position.x
                 prev_pose_st.pose.position.y = self.current_trajectory.poses[index-1].pose.position.y
                 prev_pose_st.pose.position.z = self.current_trajectory.poses[index-1].pose.position.z
+                _, _, prev_yaw_path = self.euler_from_quaternion(self.current_trajectory.poses[index-1].pose.orientation)
                 self.transform_pose_st(prev_pose_st, transform)
+            prev_yaw = prev_yaw_path + yaw_transform
 
             # Get Next Pose
             next_pose_st = PoseStamped()
+            next_yaw = 0
             next_pose_st.pose.position.x = current_pose_st.pose.position.x
             next_pose_st.pose.position.y = current_pose_st.pose.position.y
             next_pose_st.pose.position.z = current_pose_st.pose.position.z
+            _, _, next_yaw_path = self.euler_from_quaternion(current_pose_st.pose.orientation)
+            next_yaw = next_yaw_path + yaw_transform
             self.transform_pose_st(next_pose_st, transform)
 
             # Handle last pose
@@ -161,7 +208,7 @@ class TrajectoryManager(Node):
             if index == len(self.current_trajectory.poses)-1:
                 final = True
 
-            # Fill in gaps for smooth trayectory
+            # Fill in gaps for smooth trayectory for translation
             x1, y1, z1 = prev_pose_st.pose.position.x, prev_pose_st.pose.position.y, prev_pose_st.pose.position.z
             x2, y2, z2 = next_pose_st.pose.position.x, next_pose_st.pose.position.y, next_pose_st.pose.position.z
             distance = math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
@@ -170,6 +217,7 @@ class TrajectoryManager(Node):
             xs = numpy.linspace(x1, x2, num=steps, endpoint=final)
             ys = numpy.linspace(y1, y2, num=steps, endpoint=final)
             zs = numpy.linspace(z1, z2, num=steps, endpoint=final)
+            yaws = numpy.linspace(prev_yaw, next_yaw, num=steps, endpoint=final)
 
             # Publish pose
             for i in range(steps):
@@ -181,6 +229,13 @@ class TrajectoryManager(Node):
                 publish_pose_st.pose.position.x = xs[i]
                 publish_pose_st.pose.position.y = ys[i]
                 publish_pose_st.pose.position.z = zs[i]
+
+                quat = self.quaternion_from_euler(roll=0.0, pitch=0.0, yaw=yaws[i])
+
+                publish_pose_st.pose.orientation.w = quat[0]
+                publish_pose_st.pose.orientation.x = quat[1]
+                publish_pose_st.pose.orientation.y = quat[2]
+                publish_pose_st.pose.orientation.z = quat[3]
 
                 if self.is_in_trajectory:
                     self.pos_publisher.publish(publish_pose_st)
