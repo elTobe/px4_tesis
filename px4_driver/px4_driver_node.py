@@ -3,8 +3,9 @@ import math
 import numpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleLocalPosition, VehicleStatus
+from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleLocalPosition, VehicleStatus, VehicleAttitude
 from std_msgs.msg import Empty
+from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped, Twist, Pose
 
 from geometry_msgs.msg import TransformStamped
@@ -33,25 +34,25 @@ class PX4Driver(Node):
         self.takeoff_position = VehicleLocalPosition()
         self.vehicle_local_position = VehicleLocalPosition()
         self.vehicle_status = VehicleStatus()
-
-        # Flags
-        self.is_taking_off = False
-        self.is_in_trajectory = False
+        self.vehicle_attitude = VehicleAttitude()
+        self.drone_path = Path()
 
         # Create publishers
         self.drone_pose_publisher = self.create_publisher(PoseStamped, "/px4_driver/drone_pose", 10)
-        self.takeoff_pose_publisher = self.create_publisher(PoseStamped, "/px4_driver/takeoff_pose", 10)
+        self.drone_path_publisher = self.create_publisher(Path, "/px4_driver/drone_path", 10)
         self.offboard_control_mode_publisher = self.create_publisher(OffboardControlMode, "/fmu/in/offboard_control_mode", qos_profile)
         self.trajectory_setpoint_publisher = self.create_publisher(TrajectorySetpoint, "/fmu/in/trajectory_setpoint", qos_profile)
         self.vehicle_command_publisher = self.create_publisher(VehicleCommand, "/fmu/in/vehicle_command", qos_profile)
 
         # Create subscribers
+        self.drone_attitude_subscriber = self.create_subscription(VehicleAttitude, "/fmu/out/vehicle_attitude", self.vehicle_attitude_update, qos_profile)
         self.vehicle_local_position_subscriber = self.create_subscription(VehicleLocalPosition, "/fmu/out/vehicle_local_position", self.vehicle_local_position_update, qos_profile)
         self.vehicle_status_subscriber = self.create_subscription(VehicleStatus, "/fmu/out/vehicle_status", self.vehicle_status_update, qos_profile)
         self.takeoff_subscriber = self.create_subscription(Empty, "/px4_driver/takeoff", self.take_off, 10)
         self.land_subscriber = self.create_subscription(Empty, "/px4_driver/land", self.land, 10)
         self.velocity_subscriber = self.create_subscription(Twist, "/px4_driver/cmd_vel", self.cmd_vel, 10)
-        self.position_subscriber = self.create_subscription(Pose, "/px4_driver/cmd_pos", self.cmd_pos, 10)
+        self.position_subscriber = self.create_subscription(PoseStamped, "/px4_driver/cmd_pos", self.cmd_pos, 10)
+        self.reset_drone_path = self.create_subscription(Empty, "/px4_driver/reset_drone_path", self.reset_drone_path, 10)
 
         # Frame Broadcaster for Rviz
         self.tf_broadcaster = TransformBroadcaster(self)
@@ -59,7 +60,7 @@ class PX4Driver(Node):
         # Create a timer to publish hearbeat and setpoints (must be >= 2 Hz)
         self.heartbeat_timer = self.create_timer( self.node_dt, self.heartbeat)
     
-    # Returns quaternion [x, y, z, w] from Euler angles
+    # Returns quaternion [w, x, y, z] from Euler angles
     def quaternion_from_euler(self, roll=0, pitch=0, yaw=0):
         cy = math.cos(yaw * 0.5)
         sy = math.sin(yaw * 0.5)
@@ -102,45 +103,59 @@ class PX4Driver(Node):
 
         # Publish drone pose
         drone_pose = PoseStamped()
-        drone_pose.header.frame_id = "world"
+        drone_pose.header.frame_id = "ned_earth"
         drone_pose.pose.position.x = msg.x
         drone_pose.pose.position.y = msg.y
         drone_pose.pose.position.z = msg.z
-        q = self.quaternion_from_euler(yaw=msg.heading)
-        drone_pose.pose.orientation.x = q[0]
-        drone_pose.pose.orientation.y = q[1]
-        drone_pose.pose.orientation.z = q[2]
-        drone_pose.pose.orientation.w = q[3]
+        drone_pose.pose.orientation.w = float(self.vehicle_attitude.q[0])
+        drone_pose.pose.orientation.x = float(self.vehicle_attitude.q[1])
+        drone_pose.pose.orientation.y = float(self.vehicle_attitude.q[2])
+        drone_pose.pose.orientation.z = float(self.vehicle_attitude.q[3])
         drone_pose.header.stamp = self.get_clock().now().to_msg()
         self.drone_pose_publisher.publish(drone_pose)
 
-        # Publish takeoff position
-        takeoff_pose = PoseStamped()
-        takeoff_pose.header.frame_id = "world"
-        takeoff_pose.pose.position.x = float(self.takeoff_position.x)
-        takeoff_pose.pose.position.y = float(self.takeoff_position.y)
-        takeoff_pose.pose.position.z = float(self.takeoff_position.z)
-        q = self.quaternion_from_euler(yaw=self.takeoff_position.heading)
-        takeoff_pose.pose.orientation.x = q[0]
-        takeoff_pose.pose.orientation.y = q[1]
-        takeoff_pose.pose.orientation.z = q[2]
-        takeoff_pose.pose.orientation.w = q[3]
-        takeoff_pose.header.stamp = self.get_clock().now().to_msg()
-        self.takeoff_pose_publisher.publish(takeoff_pose)
+        # Update drone Path over time
+        self.drone_path.header.frame_id = "ned_earth"
+        self.drone_path.header.stamp = self.get_clock().now().to_msg()
+        self.drone_path.poses.append(drone_pose)
+        self.drone_path_publisher.publish(self.drone_path)
+
+        # Transform drone position frame for rviz
+        t = TransformStamped()
+        t.child_frame_id = "drone_position"
+        t.header.frame_id = "ned_earth"
+        t.transform.translation.x = drone_pose.pose.position.x
+        t.transform.translation.y = drone_pose.pose.position.y
+        t.transform.translation.z = drone_pose.pose.position.z
+        t.transform.rotation = drone_pose.pose.orientation
+        t.header.stamp = self.get_clock().now().to_msg()
+        self.tf_broadcaster.sendTransform(t)
 
         # Transform takeoff position frame for rviz
         t = TransformStamped()
-        t.child_frame_id = "local_home"
-        t.header.frame_id = "world"
-        t.transform.translation.x = takeoff_pose.pose.position.x
-        t.transform.translation.y = takeoff_pose.pose.position.y
-        t.transform.translation.z = takeoff_pose.pose.position.z
+        t.child_frame_id = "takeoff_position"
+        t.header.frame_id = "ned_earth"
+        t.transform.translation.x = self.takeoff_position.x
+        t.transform.translation.y = self.takeoff_position.y
+        t.transform.translation.z = self.takeoff_position.z
+        q = self.quaternion_from_euler(yaw=self.takeoff_position.heading)
+        t.transform.rotation.w = q[0]
+        t.transform.rotation.x = q[1]
+        t.transform.rotation.y = q[2]
+        t.transform.rotation.z = q[3]
         t.header.stamp = self.get_clock().now().to_msg()
         self.tf_broadcaster.sendTransform(t)
+
+    # Reset drone pose history
+    def reset_drone_path(self, msg):
+        self.drone_path = Path()
 
     # Update status when a new message is published
     def vehicle_status_update(self, msg):
         self.vehicle_status = msg
+
+    def vehicle_attitude_update(self, msg):
+        self.vehicle_attitude = msg
 
     # Publish a vehicle command with current timestamp, and a variable amount of parameters. Parameters not passed are default to a 0 value
     # Command value and parameters are specified in the message definition of px4_msgs/msg/VehicleCommand
@@ -201,7 +216,7 @@ class PX4Driver(Node):
         self.takeoff_position.z = self.vehicle_local_position.z
         self.takeoff_position.heading = self.vehicle_local_position.heading
 
-        # Update target setpoint to be take off +  the height
+        # Update target setpoint to be take off + the height
         self.current_setpoint = TrajectorySetpoint()
         self.current_setpoint.position[0] = self.takeoff_position.x
         self.current_setpoint.position[1] = self.takeoff_position.y
@@ -219,10 +234,11 @@ class PX4Driver(Node):
     # Update setpoint to perform position control when Pose received
     def cmd_pos(self, msg):
         # Change position setpoint
-        self.current_setpoint.position[0] = msg.position.x + self.takeoff_position.x
-        self.current_setpoint.position[1] = msg.position.y + self.takeoff_position.y
-        self.current_setpoint.position[2] = msg.position.z + self.takeoff_position.z
+        self.current_setpoint.position[0] = msg.pose.position.x
+        self.current_setpoint.position[1] = msg.pose.position.y
+        self.current_setpoint.position[2] = msg.pose.position.z
 
+        # TODO: change yaw angle as well
         # Only change yaw if orientation is not identity quaternion
         #if msg.orientation.w != 1:
         #    q = [msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w]

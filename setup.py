@@ -25,7 +25,6 @@ setup(
         'console_scripts': [
             'trajectory_manager = px4_driver.trajectory_manager:main',
             'px4_driver_node = px4_driver.px4_driver_node:main',
-            'inoura_connection = px4_driver.inoura_connection:main',
             'path_publisher = px4_driver.path_publisher:main'
         ],
     },
