@@ -14,6 +14,7 @@ class PathPubliser(Node):
 
         # Parameters
         self.declare_parameter("path", "heli")
+        self.declare_parameter("frame", "takeoff_position")
 
         # Publishers
         self.path_publisher = self.create_publisher(Path, "/trajectory_manager/set_path", 10)
@@ -23,7 +24,9 @@ class PathPubliser(Node):
         
         # Init Variables
         msg = Path()
-        msg.header.frame_id = "takeoff_position"
+        selected_frame = self.get_parameter("frame").get_parameter_value().string_value
+        msg.header.frame_id = selected_frame
+        self.get_logger().info(f"Selected frame : {selected_frame}")
 
         # Make selected path
         selected_path = self.get_parameter("path").get_parameter_value().string_value
@@ -31,6 +34,7 @@ class PathPubliser(Node):
 
         if selected_path == "cubo":
 
+            # crete cube trayectory, not changing heading
             trajectory = [[0,0,-1], [0,1,-1], [1,1,-1], [1,0,-1], [0,0,-1], 
                           [0,0,-2], [0,1,-2], [1,1,-2], [1,0,-2], [0,0,-2]]
             
@@ -43,9 +47,9 @@ class PathPubliser(Node):
 
         elif selected_path == "poly":
             
+            # Create polygon trayectory facing inwards
             num_lados = 5
             grados, paso = numpy.linspace(0, 360, num_lados + 1, endpoint=True, retstep=True)
-            yaw = 90
 
             for i, grad in enumerate(grados):
                 pose_st = PoseStamped()
@@ -53,27 +57,24 @@ class PathPubliser(Node):
                 pose_st.pose.position.y = math.sin(grad * math.pi/180)
                 pose_st.pose.position.z = -1.0
 
-                q = self.quaternion_from_euler(yaw=(grad)*math.pi/180)
+                q = self.quaternion_from_euler(yaw=(grad - 180)*math.pi/180)
                 pose_st.pose.orientation.w = q[0]
                 pose_st.pose.orientation.x = q[1]
                 pose_st.pose.orientation.y = q[2]
                 pose_st.pose.orientation.z = q[3]
 
-                #self.get_logger().info(f"Paso : {paso}, Grado poly : {grad}, Grado yaw : {yaw}")
                 msg.poses.append(pose_st)
                 msg.poses.append
 
         elif selected_path == "heli":
 
-            # Create helicoidal path
+            # Create helicoidal path facing outwards
             self.theta = 0
             self.radio = 1
             self.delta_ang = 0.25
             self.max_alt = 2.0
             self.altura = 1.0
             self.delta_alt = 0.025
-            paso_yaw = 360 / (((self.max_alt - self.altura) / self.delta_alt) - 3)
-            yaw = 90
             #msg.poses.append(PoseStamped())
             #init_pose_st = PoseStamped()
             #init_pose_st.pose.position.z = -self.altura
@@ -83,7 +84,7 @@ class PathPubliser(Node):
                 pose_st.pose.position.x = math.cos(self.theta) * self.radio
                 pose_st.pose.position.y = math.sin(self.theta) * self.radio
                 pose_st.pose.position.z = float(-self.altura)
-                q = self.quaternion_from_euler(yaw=(yaw*math.pi/180))
+                q = self.quaternion_from_euler(yaw=self.theta)
                 pose_st.pose.orientation.w = q[0]
                 pose_st.pose.orientation.x = q[1]
                 pose_st.pose.orientation.y = q[2]
@@ -92,7 +93,22 @@ class PathPubliser(Node):
 
                 self.altura += self.delta_alt
                 self.theta += self.delta_ang
-                #yaw += paso_yaw
+
+        # Make sinusoidal path
+        elif selected_path == "sinu":
+            paso = 10
+            longitud = 2
+            for i in range(0, 360, paso):
+                pose_st = PoseStamped()
+                pose_st.pose.position.x = longitud*i/360
+                pose_st.pose.position.y = math.sin(i*math.pi/180) * 0.5
+                pose_st.pose.position.z = 0.0
+                q = self.quaternion_from_euler(yaw=0)
+                pose_st.pose.orientation.w = -q[0]
+                pose_st.pose.orientation.x = q[1]
+                pose_st.pose.orientation.y = q[2]
+                pose_st.pose.orientation.z = q[3]
+                msg.poses.append(pose_st)
         else:
             self.get_logger().info("No valid path, exiting")
             return

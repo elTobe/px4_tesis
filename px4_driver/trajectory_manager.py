@@ -12,7 +12,7 @@ from tf2_ros import TransformBroadcaster, TransformListener, Buffer
 class TrajectoryManager(Node):
     def __init__(self):
         super().__init__("trajectory_manager")
-        self.get_logger().info("Starting trajectory manager node - ...")
+        self.get_logger().info("Starting trajectory manager node ...")
 
         # Initialize Variables
         self.trajectory_velocity = 0.16
@@ -20,6 +20,8 @@ class TrajectoryManager(Node):
         self.drone_pose = PoseStamped()
         self.current_setpoint_index = 0
         self.current_trajectory = None
+        self.orig_path = None
+        self.trajectory_transform = TransformStamped()
         self.is_in_trajectory = False
         self.node_rate = 10
         self.node_dt = 1/self.node_rate
@@ -27,6 +29,7 @@ class TrajectoryManager(Node):
         # Create Publishers
         self.trajectory_progress_publisher = self.create_publisher(Int32, "/trajectory_manager/current_index", 10)
         self.path_publisher = self.create_publisher(Path, "/trajectory_manager/current_path", 10)
+        self.orig_path_publisher = self.create_publisher(Path, "/trajectory_manager/orig_path", 10)
         self.takeoff_publisher = self.create_publisher(Empty, "/px4_driver/takeoff", 10)
         self.pos_publisher = self.create_publisher(PoseStamped, "/px4_driver/cmd_pos", 10)
 
@@ -40,6 +43,7 @@ class TrajectoryManager(Node):
         # Frame Broadcasters and Listeners for Rviz2
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.tf_broadcaster = TransformBroadcaster(self)
 
         # Timer for publishing frames, current path, current index
         self.details_heartbeat = self.create_timer(self.node_dt, self.details_heartbeat)
@@ -52,7 +56,7 @@ class TrajectoryManager(Node):
         q0, q1, q2, q3 = transform.transform.rotation.w, transform.transform.rotation.x, transform.transform.rotation.y, transform.transform.rotation.z
         r00 = 2 * (q0 * q0 + q1 * q1) - 1
         r01 = 2 * (q1 * q2 - q0 * q3)
-        r02 = 2 * (q1 * q3 + q0 * q2)
+        r02 = 2 * (q1 * q3 + q0 * q2)   
         r10 = 2 * (q1 * q2 + q0 * q3)
         r11 = 2 * (q0 * q0 + q2 * q2) - 1
         r12 = 2 * (q2 * q3 - q0 * q1)
@@ -69,9 +73,7 @@ class TrajectoryManager(Node):
         result_vector = vector_rotated + traslation_vec
 
         # Update values assuming pose_st is passed by reference
-        pose_st.pose.position.x = result_vector[0]
-        pose_st.pose.position.y = result_vector[1]
-        pose_st.pose.position.z = result_vector[2]
+        return result_vector
 
     # Returns euler angles from quaternion
     def euler_from_quaternion(self, quaternion):
@@ -111,7 +113,6 @@ class TrajectoryManager(Node):
         #q = q / numpy.linalg.norm(q)
         return q
 
-
     # Update current drone pose
     def drone_pose_update(self, msg):
         self.drone_pose = msg
@@ -119,7 +120,10 @@ class TrajectoryManager(Node):
     # Send tfs, path
     def details_heartbeat(self):
         if self.current_trajectory is not None:
+            self.trajectory_transform.header.stamp = self.get_clock().now().to_msg()
+            self.tf_broadcaster.sendTransform(self.trajectory_transform)
             self.path_publisher.publish(self.current_trajectory)
+            self.orig_path_publisher.publish(self.orig_path)
 
     # Set velocity for trayectory following
     def set_velocity(self, msg):
@@ -128,7 +132,44 @@ class TrajectoryManager(Node):
 
     # Set ned trajectory
     def set_trajectory(self, msg):
-        self.current_trajectory = msg
+        self.orig_path = msg
+        new_path = Path()
+        new_path.header.frame_id = "ned_earth"
+
+        # Obtain transform between reference frames    
+        transform = TransformStamped()
+        yaw_transform = 0
+        if msg.header.frame_id == "":
+            transform.header.frame_id = "ned_earth"
+            self.get_logger().info("Not reference frame specified, defaulting to ned_earth")
+        else:
+            try:
+                transform = self.tf_buffer.lookup_transform("ned_earth", msg.header.frame_id, rclpy.time.Time())
+                _, _, yaw_transform = self.euler_from_quaternion(transform.transform.rotation)
+            except:
+                self.get_logger().info("Error getting transform for reference frame, trayectory not set")
+                return
+        transform.child_frame_id = "path_origin"
+        self.trajectory_transform = transform
+        
+        # Convert point in trajectory from its reference frame to ned_earth
+        for i, pose_st in enumerate(msg.poses):
+            new_pose = PoseStamped()
+            vector = self.transform_pose_st(pose_st, transform)
+            new_pose.pose.position.x = vector[0]
+            new_pose.pose.position.y = vector[1]
+            new_pose.pose.position.z = vector[2]
+
+            _, _, yaw_path = self.euler_from_quaternion(pose_st.pose.orientation)
+            quat = self.quaternion_from_euler(roll=0.0, pitch=0.0, yaw=(yaw_path + yaw_transform))
+            new_pose.pose.orientation.w = quat[0]
+            new_pose.pose.orientation.x = quat[1]
+            new_pose.pose.orientation.y = quat[2]
+            new_pose.pose.orientation.z = quat[3]
+
+            new_path.poses.append(new_pose)
+
+        self.current_trajectory = new_path
         self.get_logger().info("Trayectory has been set")
 
     # Stop current trajectory
@@ -161,15 +202,6 @@ class TrajectoryManager(Node):
     # Function for sending trajectory in a thread
     def do_trajectory(self):
         
-        # Get transform from path's reference frame to ned earth-fixed
-        transform = TransformStamped()
-        try:
-            transform = self.tf_buffer.lookup_transform("ned_earth",self.current_trajectory.header.frame_id,rclpy.time.Time())
-            _, _, yaw_transform = self.euler_from_quaternion(transform.transform.rotation)
-        except:
-            self.get_logger().info("Error obteniendo la transformada")
-            return
-        
         # Do trayectory
         for index, current_pose_st in enumerate(self.current_trajectory.poses):
 
@@ -177,21 +209,21 @@ class TrajectoryManager(Node):
             msg = Int32()
             msg.data = index
             self.trajectory_progress_publisher.publish(msg)
-            self.get_logger().info(f"Setpoint {index}/{len(self.current_trajectory.poses)-1}")
+            self.get_logger().info(f"Going to setpoint {index}/{len(self.current_trajectory.poses)-1}")
 
             # Get Previous Pose or move dron from current pos to first item in trajectory
             prev_pose_st = PoseStamped()
             prev_yaw = 0
             if index == 0:
-                prev_pose_st = self.drone_pose
-                _, _, prev_yaw_path = self.euler_from_quaternion(self.drone_pose.pose.orientation)
+                prev_pose_st.pose.position.x = self.drone_pose.pose.position.x
+                prev_pose_st.pose.position.y = self.drone_pose.pose.position.y
+                prev_pose_st.pose.position.z = self.drone_pose.pose.position.z
+                _, _, prev_yaw = self.euler_from_quaternion(self.drone_pose.pose.orientation)
             else:
                 prev_pose_st.pose.position.x = self.current_trajectory.poses[index-1].pose.position.x
                 prev_pose_st.pose.position.y = self.current_trajectory.poses[index-1].pose.position.y
                 prev_pose_st.pose.position.z = self.current_trajectory.poses[index-1].pose.position.z
-                _, _, prev_yaw_path = self.euler_from_quaternion(self.current_trajectory.poses[index-1].pose.orientation)
-                self.transform_pose_st(prev_pose_st, transform)
-            prev_yaw = prev_yaw_path + yaw_transform
+                _, _, prev_yaw = self.euler_from_quaternion(self.current_trajectory.poses[index-1].pose.orientation)
 
             # Get Next Pose
             next_pose_st = PoseStamped()
@@ -199,9 +231,7 @@ class TrajectoryManager(Node):
             next_pose_st.pose.position.x = current_pose_st.pose.position.x
             next_pose_st.pose.position.y = current_pose_st.pose.position.y
             next_pose_st.pose.position.z = current_pose_st.pose.position.z
-            _, _, next_yaw_path = self.euler_from_quaternion(current_pose_st.pose.orientation)
-            next_yaw = next_yaw_path + yaw_transform
-            self.transform_pose_st(next_pose_st, transform)
+            _, _, next_yaw = self.euler_from_quaternion(current_pose_st.pose.orientation)
 
             # Handle last pose
             final = False
@@ -217,11 +247,27 @@ class TrajectoryManager(Node):
             xs = numpy.linspace(x1, x2, num=steps, endpoint=final)
             ys = numpy.linspace(y1, y2, num=steps, endpoint=final)
             zs = numpy.linspace(z1, z2, num=steps, endpoint=final)
-            yaws = numpy.linspace(prev_yaw, next_yaw, num=steps, endpoint=final)
 
+            # Maintain yaw angles between -pi to pi
+            if prev_yaw > math.pi: prev_yaw -= 2*math.pi
+            if prev_yaw < -math.pi: prev_yaw += 2*math.pi
+            if next_yaw > math.pi: next_yaw -= 2*math.pi
+            if next_yaw < -math.pi: next_yaw += 2*math.pi
+
+            # Handle cross over pi to -pi and viceversa
+            if abs(next_yaw - prev_yaw) > math.pi:
+                lim = 2*math.pi
+                if prev_yaw < 0: lim = -lim
+                next_yaw = lim + next_yaw
+                yaws = numpy.linspace( prev_yaw, next_yaw, num=steps, endpoint=final )
+                for i, element in enumerate(yaws):
+                    if abs(element) > math.pi:
+                        yaws[i] = element + lim
+            else:
+                yaws = numpy.linspace(prev_yaw, next_yaw, num=steps, endpoint=final)
+            
             # Publish pose
             for i in range(steps):
-                
                 publish_pose_st = PoseStamped()
                 publish_pose_st.header.frame_id = "ned_earth"
                 publish_pose_st.header.stamp = self.get_clock().now().to_msg()
@@ -231,7 +277,6 @@ class TrajectoryManager(Node):
                 publish_pose_st.pose.position.z = zs[i]
 
                 quat = self.quaternion_from_euler(roll=0.0, pitch=0.0, yaw=yaws[i])
-
                 publish_pose_st.pose.orientation.w = quat[0]
                 publish_pose_st.pose.orientation.x = quat[1]
                 publish_pose_st.pose.orientation.y = quat[2]

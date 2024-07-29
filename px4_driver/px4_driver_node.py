@@ -27,6 +27,7 @@ class PX4Driver(Node):
         )
 
         # Initialize variables
+        self.counter = 0
         self.takeoff_height = -1
         self.node_rate = 10
         self.node_dt = 1/self.node_rate
@@ -101,6 +102,8 @@ class PX4Driver(Node):
     # Update local position when a new message is published
     def vehicle_local_position_update(self, msg):
         self.vehicle_local_position = msg
+        if self.vehicle_status.takeoff_time == 0:
+            self.takeoff_position = msg
 
         # Publish drone pose
         drone_pose = PoseStamped()
@@ -128,7 +131,11 @@ class PX4Driver(Node):
         t.transform.translation.x = drone_pose.pose.position.x
         t.transform.translation.y = drone_pose.pose.position.y
         t.transform.translation.z = drone_pose.pose.position.z
-        t.transform.rotation = drone_pose.pose.orientation
+        q = self.quaternion_from_euler(yaw=msg.heading)
+        t.transform.rotation.w = q[0]
+        t.transform.rotation.x = q[1]
+        t.transform.rotation.y = q[2]
+        t.transform.rotation.z = q[3]
         t.header.stamp = self.get_clock().now().to_msg()
         self.tf_broadcaster.sendTransform(t)
 
@@ -226,7 +233,8 @@ class PX4Driver(Node):
 
     # Update setpoint to perform velocity control when Twist received
     def cmd_vel(self, msg):
-        # TODO: normalize to -1 .. 1
+
+        # Set velocity setpoint
         self.current_setpoint.velocity[0] = msg.linear.x
         self.current_setpoint.velocity[1] = msg.linear.y
         self.current_setpoint.velocity[2] = msg.linear.z
@@ -239,8 +247,6 @@ class PX4Driver(Node):
         self.current_setpoint.position[1] = msg.pose.position.y
         self.current_setpoint.position[2] = msg.pose.position.z
 
-        # TODO: change yaw angle as well
-        #q = [msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w]
         _, _, yaw = self.euler_from_quaternion(msg.pose.orientation)
         self.current_setpoint.yaw = yaw
 
