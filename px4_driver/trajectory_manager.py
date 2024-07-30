@@ -31,6 +31,7 @@ class TrajectoryManager(Node):
         self.path_publisher = self.create_publisher(Path, "/trajectory_manager/current_path", 10)
         self.orig_path_publisher = self.create_publisher(Path, "/trajectory_manager/orig_path", 10)
         self.takeoff_publisher = self.create_publisher(Empty, "/px4_driver/takeoff", 10)
+        self.land_publisher = self.create_publisher(Empty, "/px4_driver/land", 10)
         self.pos_publisher = self.create_publisher(PoseStamped, "/px4_driver/cmd_pos", 10)
 
         # Create Subscribers
@@ -290,6 +291,9 @@ class TrajectoryManager(Node):
         
         self.get_logger().info("End of trajectory")
         self.stop_trajectory()
+        self.land_publisher.publish(Empty())
+        self.land_publisher.publish(Empty())
+        self.land_publisher.publish(Empty())
 
 def main(args = None):
     rclpy.init(args=args)
