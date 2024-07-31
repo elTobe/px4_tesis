@@ -20,6 +20,7 @@ class PathPubliser(Node):
         self.path_publisher = self.create_publisher(Path, "/trajectory_manager/set_path", 10)
         self.takeoff_publisher = self.create_publisher(Empty, "/px4_driver/takeoff", 10)
         self.starter_publisher = self.create_publisher(Empty, "/trajectory_manager/start", 10)
+        self.stopper_publisher = self.create_publisher(Empty, "/trajectory_manager/stop", 10)
         self.drone_path_resetter = self.create_publisher(Empty, "/px4_driver/reset_drone_path", 10)
         
         # Init Variables
@@ -115,6 +116,10 @@ class PathPubliser(Node):
 
         # Publish Path
         self.path_publisher.publish(msg)
+        time.sleep(0.1)
+
+        # Stop current trajectory
+        self.stopper_publisher.publish(Empty())
         time.sleep(0.1)
 
         # Reset drone position history for logging purposes
