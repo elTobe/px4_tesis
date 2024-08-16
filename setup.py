@@ -20,7 +20,6 @@ setup(
     maintainer_email='perrusquia832@gmail.com',
     description='TODO: Package description',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'trajectory_manager = px4_driver.trajectory_manager:main',
